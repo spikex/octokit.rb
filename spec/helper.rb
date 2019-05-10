@@ -25,6 +25,11 @@ RSpec.configure do |config|
     @test_repo_id = test_github_repository_id
     @test_org_repo = "#{test_github_org}/#{test_github_repository}"
   end
+
+  config.before(:example,:fixture_server) do |example|
+    fixture = fetch_fixture(example.metadata[:scenario])
+    @fixture_endpoint = fixture['url']
+  end
 end
 
 require 'vcr'
@@ -127,6 +132,9 @@ VCR.configure do |c|
   }
   c.cassette_library_dir = 'spec/cassettes'
   c.hook_into :webmock
+  c.ignore_localhost = true
+  c.allow_http_connections_when_no_cassette = true
+  # c.ignore_hosts 'octokit-fixtures.now.sh'
 end
 
 def delete_test_repo
@@ -216,6 +224,10 @@ def test_github_integration_pem_key
   ENV.fetch 'OCTOKIT_TEST_INTEGRATION_PEM_KEY', "#{fixture_path}/fake_integration.private-key.pem"
 end
 
+def test_github_fixture_server_url
+  ENV.fetch 'OCTOKIT_TEST_GITHUB_FIXTURE_SERVER_URL', "http://localhost:3000/fixtures"
+end
+
 def stub_delete(url)
   stub_request(:delete, github_url(url))
 end
@@ -280,6 +292,11 @@ def basic_auth_client(login: test_github_login, password: test_github_password)
 end
 
 def oauth_client
+  if @fixture_endpoint
+    Octokit.configure do |c|
+      c.api_endpoint = @fixture_endpoint
+    end
+  end
   Octokit::Client.new(:access_token => test_github_token)
 end
 
@@ -338,4 +355,16 @@ def use_vcr_placeholder_for(text, replacement)
       text
     end
   end
+end
+
+def fixture_server
+  @conn || Faraday.new(url: test_github_fixture_server_url)
+end
+
+def fetch_fixture(scenario)
+  res = fixture_server.post do |req|
+    req.headers['Content-Type'] = 'application/json'
+    req.body = JSON.generate({scenario: scenario})
+  end
+  JSON.parse(res.body)
 end

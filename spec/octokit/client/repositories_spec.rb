@@ -6,14 +6,14 @@ describe Octokit::Client::Repositories do
     @client = oauth_client
   end
 
-  describe ".repository", :vcr do
-    it "returns the matching repository" do
-      repository = @client.repository("sferik/rails_admin")
-      expect(repository.name).to eq("rails_admin")
-      assert_requested :get, github_url("/repos/sferik/rails_admin")
+  describe ".repository"  do
+    it "returns the matching repository", :fixture_server, scenario: 'get-repository' do
+      repository = @client.repository("octokit-fixture-org/hello-world")
+      expect(repository.name).to eq("hello-world")
+      assert_requested :get, github_url("/repos/octokit-fixture-org/hello-world")
     end
 
-    it "returns the repository, including topics" do
+    it "returns the repository, including topics", :vcr do
       repository = @client.repository("github/linguist", :accept => Octokit::Preview::PREVIEW_TYPES.fetch(:topics))
       expect(repository.topics).to be_kind_of Array
       expect(repository.topics).to include("syntax-highlighting")
@@ -207,7 +207,7 @@ describe Octokit::Client::Repositories do
         expect(topics.names).to include("octokit")
         assert_requested :get, github_url("/repos/#{@repo.full_name}/topics")
       end
-    end # .topics    
+    end # .topics
 
     describe ".replace_all_topics", :vcr do
       it "replaces all topics for a repository" do
@@ -391,7 +391,7 @@ describe Octokit::Client::Repositories do
           required_status_checks: {
             strict: true,
             include_admins: true,
-            contexts: [] 
+            contexts: []
           },
           restrictions: nil
         }
